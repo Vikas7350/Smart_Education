@@ -12,12 +12,37 @@ const razorpay = new Razorpay({
   key_secret: process.env.RAZORPAY_KEY_SECRET
 });
 
+// Helper function to format subscription response
+function formatSubscription(subscription) {
+  const now = new Date();
+  const isActive = subscription.paymentStatus === 'SUCCESS' && subscription.expiryDate > now;
+  const daysRemaining = isActive ? Math.ceil((subscription.expiryDate - now) / (1000 * 60 * 60 * 24)) : 0;
+
+  return {
+    _id: subscription._id,
+    userId: subscription.userId,
+    planType: subscription.planType,
+    activationDate: subscription.activationDate,
+    expiryDate: subscription.expiryDate,
+    paymentStatus: subscription.paymentStatus,
+    razorpayOrderId: subscription.razorpayOrderId,
+    razorpayPaymentId: subscription.razorpayPaymentId,
+    amount: subscription.amount,
+    currency: subscription.currency,
+    createdAt: subscription.createdAt,
+    // Computed fields for frontend
+    isActive: isActive,
+    daysRemaining: daysRemaining,
+    hasSubscription: true
+  };
+}
+
 // Get current user's subscription
 router.get('/', auth, async (req, res) => {
   try {
     const subscription = await Subscription.findOne({ userId: req.user._id });
     if (!subscription) return res.status(404).json({ message: 'No subscription found' });
-    res.json(subscription);
+    res.json(formatSubscription(subscription));
   } catch (err) {
     console.error('Get subscription error:', err);
     res.status(500).json({ message: 'Server error' });
@@ -29,7 +54,7 @@ router.get('/current', auth, async (req, res) => {
   try {
     const subscription = await Subscription.findOne({ userId: req.user._id });
     if (!subscription) return res.status(404).json({ message: 'No subscription found' });
-    res.json(subscription);
+    res.json(formatSubscription(subscription));
   } catch (err) {
     console.error('Get subscription error:', err);
     res.status(500).json({ message: 'Server error' });
@@ -159,7 +184,7 @@ router.post('/verify-payment', auth, async (req, res) => {
     await subscription.save();
 
     console.log(`✅ Payment verified for order ${razorpay_order_id}, payment ${razorpay_payment_id}`);
-    res.json({ message: 'Payment verified successfully', subscription });
+    res.json({ message: 'Payment verified successfully', subscription: formatSubscription(subscription) });
   } catch (err) {
     console.error('Verify payment error:', err);
     res.status(500).json({ message: 'Payment verification error', error: err.message });
