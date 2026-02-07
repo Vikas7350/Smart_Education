@@ -49,10 +49,15 @@ router.post('/create-order', auth, async (req, res) => {
     const amount = planAmounts[planType] || 9900;
 
     // Create Razorpay order
+    // Razorpay requires receipt length <= 40 chars. Use a shortened receipt.
+    const shortUser = req.user._id.toString().slice(-8);
+    const shortTs = Date.now().toString().slice(-8);
+    const receipt = `sub_${shortUser}_${shortTs}`; // ~20 chars
+
     const order = await razorpay.orders.create({
       amount: amount,
       currency: 'INR',
-      receipt: `sub_${req.user._id}_${Date.now()}`,
+      receipt: receipt,
       notes: {
         userId: req.user._id.toString(),
         planType: planType
@@ -84,7 +89,8 @@ router.post('/create-order', auth, async (req, res) => {
       orderId: order.id,
       amount: amount,
       currency: 'INR',
-      subscriptionId: subscription._id
+      subscriptionId: subscription._id,
+      keyId: process.env.RAZORPAY_KEY_ID
     });
   } catch (err) {
     console.error('Create order error:', err);
