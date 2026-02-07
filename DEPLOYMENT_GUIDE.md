@@ -29,7 +29,7 @@ git add .
 git commit -m "Initial commit: Smart Education App"
 
 # Add remote
-git remote add origin https://github.com/YOUR_USERNAME/smart-education.git
+git remote add origin https://github.com/Vikas7350/Education.git
 
 # Push to GitHub
 git branch -M main
