@@ -78,6 +78,8 @@ const connectDB = async () => {
     } else {
       console.error('❌ Max connection attempts reached. Please check your MongoDB connection string and network.');
       console.error('💡 Tip: Ensure your IP is whitelisted in MongoDB Atlas and the connection string is correct.');
+      // Exit so the process doesn't run without a working DB connection (prevents buffering timeouts)
+      process.exit(1);
     }
   }
 };
@@ -85,6 +87,13 @@ const connectDB = async () => {
 // Handle connection events
 mongoose.connection.on('connected', () => {
   console.log('📡 Mongoose connected to MongoDB');
+  // Start the HTTP server only after DB connection is established
+  try {
+    startServer();
+  } catch (err) {
+    console.error('❌ Failed to start server after DB connect:', err);
+    process.exit(1);
+  }
 });
 
 mongoose.connection.on('error', (err) => {
@@ -109,9 +118,9 @@ let currentPort = PORT;
 let attemptCount = 0;
 const maxPortAttempts = 3;
 
-const startServer = () => {
+function startServer() {
   attemptCount++;
-  
+
   const server = app.listen(currentPort, '0.0.0.0', () => {
     console.log(`🚀 Server running on port ${currentPort}`);
   });
@@ -130,7 +139,5 @@ const startServer = () => {
       throw err;
     }
   });
-};
-
-startServer();
+}
 
