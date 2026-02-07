@@ -2,6 +2,7 @@ const express = require('express');
 const Subscription = require('../models/Subscription');
 const { auth } = require('../middleware/auth');
 const Razorpay = require('razorpay');
+const crypto = require('crypto');
 
 const router = express.Router();
 
@@ -124,6 +125,44 @@ router.post('/subscribe', auth, async (req, res) => {
   } catch (err) {
     console.error('Subscribe error:', err);
     res.status(500).json({ message: 'Server error' });
+  }
+});
+
+// Verify Razorpay payment
+router.post('/verify-payment', auth, async (req, res) => {
+  try {
+    const { razorpay_order_id, razorpay_payment_id, razorpay_signature } = req.body;
+
+    // Verify the signature using HMAC SHA256
+    const body = `${razorpay_order_id}|${razorpay_payment_id}`;
+    const expectedSignature = crypto
+      .createHmac('sha256', process.env.RAZORPAY_KEY_SECRET)
+      .update(body)
+      .digest('hex');
+
+    if (expectedSignature !== razorpay_signature) {
+      console.error('❌ Invalid Razorpay signature for payment', razorpay_payment_id);
+      return res.status(400).json({ message: 'Payment verification failed: Invalid signature' });
+    }
+
+    // Signature is valid, update subscription status
+    const subscription = await Subscription.findOne({ userId: req.user._id });
+    if (!subscription) {
+      return res.status(404).json({ message: 'Subscription not found' });
+    }
+
+    subscription.paymentStatus = 'SUCCESS';
+    subscription.razorpayPaymentId = razorpay_payment_id;
+    subscription.expiryDate = new Date(
+      Date.now() + (subscription.planType === 'YEARLY' ? 365 : 30) * 24 * 60 * 60 * 1000
+    );
+    await subscription.save();
+
+    console.log(`✅ Payment verified for order ${razorpay_order_id}, payment ${razorpay_payment_id}`);
+    res.json({ message: 'Payment verified successfully', subscription });
+  } catch (err) {
+    console.error('Verify payment error:', err);
+    res.status(500).json({ message: 'Payment verification error', error: err.message });
   }
 });
 
