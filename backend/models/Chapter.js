@@ -53,7 +53,7 @@ const chapterSchema = new mongoose.Schema({
     default: 'medium'
   },
   estimatedTime: {
-    type: Number, // in minutes
+    type: Number,
     default: 30
   },
   quiz: {

@@ -104,7 +104,7 @@ export default function SubscriptionPage() {
     {
       type: 'MONTHLY' as const,
       name: 'Premium Monthly',
-      price: 10,
+      price: 1000,
       period: 'month',
       description: 'Perfect for short-term learning',
       features: [
@@ -118,7 +118,7 @@ export default function SubscriptionPage() {
     {
       type: 'YEARLY' as const,
       name: 'Premium Yearly',
-      price: 100,
+      price: 10000,
       period: 'year',
       description: 'Best value for long-term learning',
       savings: 'Save ₹20',
@@ -285,4 +285,3 @@ export default function SubscriptionPage() {
     </>
   )
 }
-

@@ -8,334 +8,270 @@ const Quiz = require('../models/Quiz');
 
 dotenv.config();
 
-const seedData = async () => {
+const seedAllChapters = async () => {
   try {
-    const mongoOptions = {};
-
-    // For MongoDB Atlas (mongodb+srv), add SSL options
+    const mongoOptions = {
+      serverSelectionTimeoutMS: 30000,
+      socketTimeoutMS: 45000,
+      maxPoolSize: 1,
+      retryWrites: true
+    };
+    
     if (process.env.MONGODB_URI && process.env.MONGODB_URI.includes('mongodb+srv')) {
       mongoOptions.tls = true;
-      // Try allowing invalid certificates as a workaround for SSL issues
       mongoOptions.tlsAllowInvalidCertificates = true;
       mongoOptions.tlsAllowInvalidHostnames = true;
     }
 
-    await mongoose.connect(process.env.MONGODB_URI || 'mongodb://localhost:27017/smart_education', mongoOptions);
-    console.log('✅ Connected to MongoDB');
-
-    // Clear existing data
-    await User.deleteMany({});
-    await Subject.deleteMany({});
-    await Chapter.deleteMany({});
-    await Quiz.deleteMany({});
-
-    // Create admin user
-    const adminPassword = await bcrypt.hash('admin123', 10);
-    const admin = await User.create({
-      name: 'Admin User',
-      email: 'admin@smarteducation.com',
-      password: adminPassword,
-      class: '10',
-      role: 'admin',
-      points: 0,
-      streak: 0
-    });
-    console.log('✅ Created admin user');
-
-    // Create sample student
-    const studentPassword = await bcrypt.hash('student123', 10);
-    const student = await User.create({
-      name: 'Vikas',
-      email: 'vikas@example.com',
-      password: studentPassword,
-      class: '10',
-      role: 'student',
-      points: 0,
-      streak: 0
-    });
-    console.log('✅ Created sample student');
-
-    // Create subjects
-    const subjects = [
-      {
-        name: 'Mathematics',
-        description: 'Learn algebra, geometry, trigonometry, and more',
-        icon: '🔢',
-        color: '#6366f1',
-        class: '10'
-      },
-      {
-        name: 'Science',
-        description: 'Physics, Chemistry, and Biology for Class 10',
-        icon: '🔬',
-        color: '#10b981',
-        class: '10'
-      },
-      {
-        name: 'Social Science',
-        description: 'History, Geography, Civics, and Economics',
-        icon: '🌍',
-        color: '#f59e0b',
-        class: '10'
-      },
-      {
-        name: 'English',
-        description: 'Literature, Grammar, and Communication Skills',
-        icon: '📖',
-        color: '#ef4444',
-        class: '10'
-      },
-      {
-        name: 'Hindi',
-        description: 'हिंदी व्याकरण और साहित्य',
-        icon: '📝',
-        color: '#8b5cf6',
-        class: '10'
-      }
-    ];
-
-    // Insert subjects one by one to avoid SSL connection issues
-    const createdSubjects = [];
-    for (const subject of subjects) {
+    // Retry connection
+    let connected = false;
+    for (let i = 0; i < 3; i++) {
       try {
-        const created = await Subject.create(subject);
-        createdSubjects.push(created);
-      } catch (error) {
-        console.error(`Error creating subject ${subject.name}:`, error.message);
-        // Try to find existing subject
-        const existing = await Subject.findOne({ name: subject.name });
-        if (existing) {
-          createdSubjects.push(existing);
+        await mongoose.connect(process.env.MONGODB_URI, mongoOptions);
+        connected = true;
+        console.log('✅ Connected to MongoDB\n');
+        break;
+      } catch (err) {
+        if (i < 2) {
+          console.log(`Connection attempt ${i + 1} failed, retrying...`);
+          await new Promise(resolve => setTimeout(resolve, 2000));
+        } else {
+          throw err;
         }
       }
     }
-    console.log('✅ Created subjects');
 
-    // Create sample chapters
-    const mathSubject = createdSubjects.find(s => s.name === 'Mathematics');
-    const scienceSubject = createdSubjects.find(s => s.name === 'Science');
-
-    const chapters = [
-      {
-        chapterTitle: 'Real Numbers',
-        subjectId: mathSubject._id,
-        subject: mathSubject._id, // Backward compatibility
-        title: 'Real Numbers', // Backward compatibility
-        chapterNumber: 1,
-        chapterContent: `# Real Numbers
-
-## Introduction
-Real numbers are the foundation of mathematics. They include all rational and irrational numbers.
-
-## Key Concepts
-
-### Rational Numbers
-Rational numbers can be expressed as a fraction p/q where p and q are integers and q ≠ 0.
-
-Examples:
-- 1/2
-- 3/4
-- -5/7
-
-### Irrational Numbers
-Irrational numbers cannot be expressed as a fraction. Their decimal expansion is non-terminating and non-recurring.
-
-Examples:
-- √2
-- π
-- e
-
-## Important Theorems
-
-### Euclid's Division Lemma
-For any two positive integers a and b, there exist unique integers q and r such that:
-a = bq + r, where 0 ≤ r < b
-
-### Fundamental Theorem of Arithmetic
-Every composite number can be expressed as a product of primes, and this factorization is unique.`,
-        content: `# Real Numbers
-
-## Introduction
-Real numbers are the foundation of mathematics. They include all rational and irrational numbers.
-
-## Key Concepts
-
-### Rational Numbers
-Rational numbers can be expressed as a fraction p/q where p and q are integers and q ≠ 0.
-
-Examples:
-- 1/2
-- 3/4
-- -5/7
-
-### Irrational Numbers
-Irrational numbers cannot be expressed as a fraction. Their decimal expansion is non-terminating and non-recurring.
-
-Examples:
-- √2
-- π
-- e
-
-## Important Theorems
-
-### Euclid's Division Lemma
-For any two positive integers a and b, there exist unique integers q and r such that:
-a = bq + r, where 0 ≤ r < b
-
-### Fundamental Theorem of Arithmetic
-Every composite number can be expressed as a product of primes, and this factorization is unique.`, // Backward compatibility
-        keywords: ['real numbers', 'rational', 'irrational', 'euclid', 'prime'],
-        difficulty: 'medium',
-        estimatedTime: 45
-      },
-      {
-        chapterTitle: 'Polynomials',
-        subjectId: mathSubject._id,
-        subject: mathSubject._id, // Backward compatibility
-        title: 'Polynomials', // Backward compatibility
-        chapterNumber: 2,
-        chapterContent: `# Polynomials
-
-## Introduction
-A polynomial is an expression consisting of variables and coefficients.
-
-## Degree of Polynomial
-The highest power of the variable in a polynomial is called its degree.
-
-## Types of Polynomials
-- Linear (degree 1)
-- Quadratic (degree 2)
-- Cubic (degree 3)
-
-## Zeroes of Polynomial
-The values of x for which p(x) = 0 are called zeroes of the polynomial.`,
-        content: `# Polynomials
-
-## Introduction
-A polynomial is an expression consisting of variables and coefficients.
-
-## Degree of Polynomial
-The highest power of the variable in a polynomial is called its degree.
-
-## Types of Polynomials
-- Linear (degree 1)
-- Quadratic (degree 2)
-- Cubic (degree 3)
-
-## Zeroes of Polynomial
-The values of x for which p(x) = 0 are called zeroes of the polynomial.`, // Backward compatibility
-        keywords: ['polynomial', 'degree', 'zeroes', 'quadratic'],
-        difficulty: 'easy',
-        estimatedTime: 40
-      },
-      {
-        chapterTitle: 'Chemical Reactions and Equations',
-        subjectId: scienceSubject._id,
-        subject: scienceSubject._id, // Backward compatibility
-        title: 'Chemical Reactions and Equations', // Backward compatibility
-        chapterNumber: 1,
-        chapterContent: `# Chemical Reactions and Equations
-
-## Introduction
-A chemical reaction is a process where reactants are converted into products.
-
-## Types of Chemical Reactions
-1. Combination Reaction
-2. Decomposition Reaction
-3. Displacement Reaction
-4. Double Displacement Reaction
-
-## Balancing Chemical Equations
-Chemical equations must be balanced to follow the law of conservation of mass.`,
-        content: `# Chemical Reactions and Equations
-
-## Introduction
-A chemical reaction is a process where reactants are converted into products.
-
-## Types of Chemical Reactions
-1. Combination Reaction
-2. Decomposition Reaction
-3. Displacement Reaction
-4. Double Displacement Reaction
-
-## Balancing Chemical Equations
-Chemical equations must be balanced to follow the law of conservation of mass.`, // Backward compatibility
-        keywords: ['chemical reaction', 'equation', 'balancing', 'reactants', 'products'],
-        difficulty: 'medium',
-        estimatedTime: 50
-      }
+    // Subjects data
+    const subjectsData = [
+      { id: 'maths', name: 'Mathematics', description: 'Learn algebra, geometry, trigonometry, and more', icon: '🔢', color: '#6366f1', class: '10' },
+      { id: 'science', name: 'Science', description: 'Physics, Chemistry, Biology for Class 10', icon: '🔬', color: '#10b981', class: '10' },
+      { id: 'sst', name: 'Social Science', description: 'History, Geography, Civics, and Economics', icon: '🌍', color: '#f59e0b', class: '10' },
+      { id: 'english', name: 'English', description: 'Literature, Grammar, and Communication Skills', icon: '📖', color: '#ef4444', class: '10' },
+      { id: 'hindi', name: 'Hindi', description: 'व्याकरण और साहित्य', icon: '📝', color: '#8b5cf6', class: '10' }
     ];
 
-    // Insert chapters one by one to avoid SSL connection issues
-    const createdChapters = [];
-    for (const chapter of chapters) {
-      try {
-        const created = await Chapter.create(chapter);
-        createdChapters.push(created);
-      } catch (error) {
-        console.error(`Error creating chapter ${chapter.chapterTitle}:`, error.message);
+    // Chapters data
+    const chaptersData = {
+      maths: [
+        { chapterNumber: 1, chapterTitle: 'Real Numbers' },
+        { chapterNumber: 2, chapterTitle: 'Polynomials' },
+        { chapterNumber: 3, chapterTitle: 'Pair of Linear Equations in Two Variables' },
+        { chapterNumber: 4, chapterTitle: 'Quadratic Equations' },
+        { chapterNumber: 5, chapterTitle: 'Arithmetic Progressions' },
+        { chapterNumber: 6, chapterTitle: 'Triangles' },
+        { chapterNumber: 7, chapterTitle: 'Coordinate Geometry' },
+        { chapterNumber: 8, chapterTitle: 'Introduction to Trigonometry' },
+        { chapterNumber: 9, chapterTitle: 'Applications of Trigonometry' },
+        { chapterNumber: 10, chapterTitle: 'Circles' },
+        { chapterNumber: 11, chapterTitle: 'Constructions' },
+        { chapterNumber: 12, chapterTitle: 'Areas Related to Circles' },
+        { chapterNumber: 13, chapterTitle: 'Surface Areas and Volumes' },
+        { chapterNumber: 14, chapterTitle: 'Statistics' },
+        { chapterNumber: 15, chapterTitle: 'Probability' }
+      ],
+      science: [
+        { chapterNumber: 1, chapterTitle: 'Chemical Reactions and Equations' },
+        { chapterNumber: 2, chapterTitle: 'Acids, Bases and Salts' },
+        { chapterNumber: 3, chapterTitle: 'Metals and Non-Metals' },
+        { chapterNumber: 4, chapterTitle: 'Carbon and its Compounds' },
+        { chapterNumber: 5, chapterTitle: 'Periodic Classification of Elements' },
+        { chapterNumber: 6, chapterTitle: 'Life Processes' },
+        { chapterNumber: 7, chapterTitle: 'Control and Coordination' },
+        { chapterNumber: 8, chapterTitle: 'How do Organisms Reproduce' },
+        { chapterNumber: 9, chapterTitle: 'Heredity and Evolution' },
+        { chapterNumber: 10, chapterTitle: 'Light – Reflection and Refraction' },
+        { chapterNumber: 11, chapterTitle: 'Human Eye and Colorful World' },
+        { chapterNumber: 12, chapterTitle: 'Electricity' },
+        { chapterNumber: 13, chapterTitle: 'Magnetic Effects of Electric Current' },
+        { chapterNumber: 14, chapterTitle: 'Sources of Energy' },
+        { chapterNumber: 15, chapterTitle: 'Our Environment' },
+        { chapterNumber: 16, chapterTitle: 'Sustainable Management of Natural Resources' }
+      ],
+      sst: [
+        { chapterNumber: 1, chapterTitle: 'Resources and Development' },
+        { chapterNumber: 2, chapterTitle: 'Forest and Wildlife Resources' },
+        { chapterNumber: 3, chapterTitle: 'Water Resources' },
+        { chapterNumber: 4, chapterTitle: 'Agriculture' },
+        { chapterNumber: 5, chapterTitle: 'Minerals and Energy Resources' },
+        { chapterNumber: 6, chapterTitle: 'Manufacturing Industries' },
+        { chapterNumber: 7, chapterTitle: 'Lifelines of National Economy' },
+        { chapterNumber: 8, chapterTitle: 'Power Sharing' },
+        { chapterNumber: 9, chapterTitle: 'Federalism' },
+        { chapterNumber: 10, chapterTitle: 'Gender, Religion and Caste' },
+        { chapterNumber: 11, chapterTitle: 'Political Parties' },
+        { chapterNumber: 12, chapterTitle: 'Outcomes of Democracy' },
+        { chapterNumber: 13, chapterTitle: 'Development' },
+        { chapterNumber: 14, chapterTitle: 'Sectors of Indian Economy' },
+        { chapterNumber: 15, chapterTitle: 'Money and Credit' },
+        { chapterNumber: 16, chapterTitle: 'Globalization and The Indian Economy' }
+      ],
+      english: [
+        { chapterNumber: 1, chapterTitle: 'A Letter to God' },
+        { chapterNumber: 2, chapterTitle: 'Nelson Mandela: Long Walk to Freedom' },
+        { chapterNumber: 3, chapterTitle: 'Two Stories About Flying' },
+        { chapterNumber: 4, chapterTitle: 'From the Diary of Anne Frank' },
+        { chapterNumber: 5, chapterTitle: 'The Hundred Dresses I & II' },
+        { chapterNumber: 6, chapterTitle: 'Glimpses of India' },
+        { chapterNumber: 7, chapterTitle: 'Mijbil the Otter' },
+        { chapterNumber: 8, chapterTitle: 'Madam Rides the Bus' },
+        { chapterNumber: 9, chapterTitle: 'The Sermon at Benares' },
+        { chapterNumber: 10, chapterTitle: 'The Proposal' }
+      ],
+      hindi: [
+        { chapterNumber: 1, chapterTitle: 'सखियों के बीच' },
+        { chapterNumber: 2, chapterTitle: 'टोपी' },
+        { chapterNumber: 3, chapterTitle: 'मानवीयता' },
+        { chapterNumber: 4, chapterTitle: 'एक कहानी यह भी' },
+        { chapterNumber: 5, chapterTitle: 'सूरदास के पद' },
+        { chapterNumber: 6, chapterTitle: 'अतिथि' },
+        { chapterNumber: 7, chapterTitle: 'बड़े भाई साहब' },
+        { chapterNumber: 8, chapterTitle: 'डायरी का एक पन्ना' }
+      ]
+    };
+
+    console.log('📚 Creating/Updating Subjects...\n');
+
+    // Create or update subjects
+    const createdSubjects = {};
+    for (const subjectData of subjectsData) {
+      let subject = await Subject.findOne({ name: subjectData.name });
+      
+      if (!subject) {
+        subject = await Subject.create(subjectData);
+        console.log(`✅ Created subject: ${subject.name}`);
+      } else {
+        // Update existing subject
+        Object.assign(subject, subjectData);
+        await subject.save();
+        console.log(`✅ Updated subject: ${subject.name}`);
       }
+      
+      createdSubjects[subjectData.id] = subject;
     }
-    console.log('✅ Created chapters');
 
-    // Update subjects with chapters
-    await Subject.findByIdAndUpdate(mathSubject._id, {
-      chapters: createdChapters.filter(c => 
-        (c.subjectId || c.subject)?.toString() === mathSubject._id.toString()
-      ).map(c => c._id)
-    });
+    console.log('\n📖 Creating Chapters...\n');
 
-    await Subject.findByIdAndUpdate(scienceSubject._id, {
-      chapters: createdChapters.filter(c => 
-        (c.subjectId || c.subject)?.toString() === scienceSubject._id.toString()
-      ).map(c => c._id)
-    });
+    // Don't delete all chapters - use upsert instead to avoid data loss
+    // await Chapter.deleteMany({});
+    // console.log('🗑️  Cleared existing chapters\n');
 
-    // Create sample quiz
-    const realNumbersChapter = createdChapters.find(c => 
-      (c.chapterTitle || c.title) === 'Real Numbers'
-    );
-    if (realNumbersChapter) {
-      const quiz = await Quiz.create({
-        title: 'Real Numbers Quiz',
-        chapter: realNumbersChapter._id,
-        subject: mathSubject._id,
-        subjectId: mathSubject._id, // Backward compatibility
-        questions: [
-          {
-            question: 'Which of the following is a rational number?',
-            options: ['√2', 'π', '3/4', '√5'],
-            correctAnswer: 2,
-            explanation: '3/4 is a rational number as it can be expressed as a fraction.',
-            points: 10
-          },
-          {
-            question: 'What is the decimal expansion of 1/3?',
-            options: ['Terminating', 'Non-terminating recurring', 'Non-terminating non-recurring', 'None of the above'],
-            correctAnswer: 1,
-            explanation: '1/3 = 0.333... which is non-terminating and recurring.',
-            points: 10
-          },
-          {
-            question: 'According to Euclid\'s Division Lemma, for a = 17 and b = 5, what is the remainder?',
-            options: ['0', '1', '2', '3'],
-            correctAnswer: 2,
-            explanation: '17 = 5 × 3 + 2, so remainder is 2.',
-            points: 10
+    // Create chapters for each subject
+    let totalChapters = 0;
+    for (const [subjectId, chapters] of Object.entries(chaptersData)) {
+      const subject = createdSubjects[subjectId];
+      if (!subject) {
+        console.log(`⚠️  Subject ${subjectId} not found, skipping chapters`);
+        continue;
+      }
+
+      console.log(`\n📘 Creating chapters for ${subject.name}...`);
+      
+      for (const chapterData of chapters) {
+        let created = false;
+        for (let attempt = 0; attempt < 5; attempt++) {
+          try {
+            // Use findOneAndUpdate with upsert to avoid duplicates
+            const chapter = await Chapter.findOneAndUpdate(
+              {
+                subjectId: subject._id,
+                chapterNumber: chapterData.chapterNumber,
+                chapterTitle: chapterData.chapterTitle
+              },
+              {
+                chapterTitle: chapterData.chapterTitle,
+                subjectId: subject._id,
+                subject: subject._id, // Backward compatibility
+                title: chapterData.chapterTitle, // Backward compatibility
+                chapterNumber: chapterData.chapterNumber,
+                chapterContent: '', // Will be auto-generated when opened
+                contentHTML: '', // Will be auto-generated when opened
+                content: '', // Backward compatibility
+                difficulty: 'medium',
+                estimatedTime: 45,
+                keywords: []
+              },
+              {
+                upsert: true,
+                new: true,
+                setDefaultsOnInsert: true
+              }
+            );
+            
+            if (created || attempt === 0) {
+              console.log(`  ✅ Chapter ${chapterData.chapterNumber}: ${chapterData.chapterTitle}`);
+            }
+            totalChapters++;
+            created = true;
+            
+            // Small delay to avoid connection issues
+            await new Promise(resolve => setTimeout(resolve, 200));
+            break;
+          } catch (error) {
+            if (attempt < 4) {
+              console.log(`  ⚠️  Retrying ${chapterData.chapterTitle}... (attempt ${attempt + 2})`);
+              await new Promise(resolve => setTimeout(resolve, 1000 * (attempt + 1)));
+            } else {
+              console.error(`  ❌ Failed to create: ${chapterData.chapterTitle} - ${error.message}`);
+            }
           }
-        ],
-        timeLimit: 300,
-        difficulty: 'medium'
-      });
+        }
+      }
 
-      await Chapter.findByIdAndUpdate(realNumbersChapter._id, { quiz: quiz._id });
-      console.log('✅ Created sample quiz');
+      // Update subject with chapter references
+      const subjectChapters = await Chapter.find({
+        $or: [
+          { subjectId: subject._id },
+          { subject: subject._id }
+        ]
+      });
+      
+      await Subject.findByIdAndUpdate(subject._id, {
+        chapters: subjectChapters.map(c => c._id)
+      });
+      
+      console.log(`  📊 Total: ${subjectChapters.length} chapters`);
     }
 
-    console.log('\n🎉 Seed data created successfully!');
-    console.log('\nLogin credentials:');
-    console.log('Admin: admin@smarteducation.com / admin123');
-    console.log('Student: vikas@example.com / student123');
+    // Create admin user if doesn't exist
+    let admin = await User.findOne({ email: 'admin@smarteducation.com' });
+    if (!admin) {
+      const adminPassword = await bcrypt.hash('admin123', 10);
+      admin = await User.create({
+        name: 'Admin User',
+        email: 'admin@smarteducation.com',
+        password: adminPassword,
+        class: '10',
+        role: 'admin',
+        points: 0,
+        streak: 0
+      });
+      console.log('\n✅ Created admin user');
+    }
+
+    // Create sample student if doesn't exist
+    let student = await User.findOne({ email: 'vikas@example.com' });
+    if (!student) {
+      const studentPassword = await bcrypt.hash('student123', 10);
+      student = await User.create({
+        name: 'Vikas',
+        email: 'vikas@example.com',
+        password: studentPassword,
+        class: '10',
+        role: 'student',
+        points: 0,
+        streak: 0
+      });
+      console.log('✅ Created sample student');
+    }
+
+    console.log('\n🎉 Seed completed successfully!');
+    console.log(`\n📊 Summary:`);
+    console.log(`   - Subjects: ${subjectsData.length}`);
+    console.log(`   - Total Chapters: ${totalChapters}`);
+    console.log(`\n💡 Note: Chapter content will be auto-generated using Gemini API when chapters are opened.`);
+    console.log(`\n🔑 Login credentials:`);
+    console.log(`   Admin: admin@smarteducation.com / admin123`);
+    console.log(`   Student: vikas@example.com / student123`);
     
     process.exit(0);
   } catch (error) {
@@ -344,5 +280,7 @@ Chemical equations must be balanced to follow the law of conservation of mass.`,
   }
 };
 
-seedData();
+seedAllChapters();
+
+
 

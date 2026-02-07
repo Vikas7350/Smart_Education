@@ -1,0 +1,36 @@
+#include <iostream>
+using namespace std;
+
+int main() {
+    int table[6];
+    
+    for (int j = 0; j < 6; j++) {
+        table[j] = -1;
+    }
+
+    int count;
+    cout << "How many cold drink flavours do you want? ";
+    cin >> count;
+
+    cout << "Enter the flavour keys: ";
+    for (int j = 0; j < count; j++) {
+        int keyValue;
+        cin >> keyValue;
+
+        int pos = keyValue % 6;
+
+
+        while (table[pos] != -1) {
+            pos = (pos + 1) % 6;
+        }
+
+        table[pos] = keyValue;
+    }
+
+    cout << "\nFinal Hash Table:\n";
+    for (int j = 0; j < 6; j++) {
+        cout << j << " : " << table[j] << endl;
+    }
+
+    return 0;
+}

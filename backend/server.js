@@ -105,8 +105,32 @@ process.on('SIGINT', async () => {
 connectDB();
 
 const PORT = process.env.PORT || 5000;
+let currentPort = PORT;
+let attemptCount = 0;
+const maxPortAttempts = 3;
 
-app.listen(PORT, () => {
-  console.log(`🚀 Server running on port ${PORT}`);
-});
+const startServer = () => {
+  attemptCount++;
+  
+  const server = app.listen(currentPort, '0.0.0.0', () => {
+    console.log(`🚀 Server running on port ${currentPort}`);
+  });
+
+  server.on('error', (err) => {
+    if (err.code === 'EADDRINUSE') {
+      if (attemptCount < maxPortAttempts) {
+        currentPort = parseInt(PORT) + attemptCount;
+        console.error(`❌ Port ${PORT} is already in use. Trying port ${currentPort}...`);
+        setTimeout(startServer, 1000);
+      } else {
+        console.error(`❌ Could not find an available port. Please kill processes using ports ${PORT}-${parseInt(PORT) + maxPortAttempts - 1}`);
+        process.exit(1);
+      }
+    } else {
+      throw err;
+    }
+  });
+};
+
+startServer();
 

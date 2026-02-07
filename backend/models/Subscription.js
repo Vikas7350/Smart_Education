@@ -48,8 +48,7 @@ const subscriptionSchema = new mongoose.Schema({
   }
 });
 
-// Index for quick lookup
-subscriptionSchema.index({ userId: 1 });
+// Index for quick lookup (userId is already indexed via unique constraint)
 subscriptionSchema.index({ expiryDate: 1 });
 
 // Method to check if subscription is active
